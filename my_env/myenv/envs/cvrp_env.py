@@ -16,15 +16,21 @@ class CVRPEnv(gym.Env):
     def step(self, action):
         self._take_action(action)
         # self.status = self.env.step()
-        reward = self.distance_now
+        reward = self._get_reward()
+        distance_total = self.distance_now
         ob = self.getState()
+        rt = self.route
         if len(ob)==0:
             done = True
             print("UAV DOWN")
         else:
             done = self.done
         # episode_over = self.status != hfo_py.IN_GAME
-        return ob, reward, done, {}
+        if done:
+            self.inf = 'Game over,reward is'+str(reward)
+            plt.text(1, 1,self.inf, style='italic',bbox={'facecolor':'red', 'alpha':0.5, 'pad':5})
+            plt.show()
+        return ob, reward, done, distance_total, rt,{}
 
     def seed(self):
         pass
@@ -43,10 +49,18 @@ class CVRPEnv(gym.Env):
         self.route_this =[]
         self.route_this.append(self.position)
 
-        self.state = self.pointavailable.copy()
+        self.state = self.getState().copy()
         self.route = []
+
+        self.reward = 0
+
+        self.temp_dis = 0
+
+
         print("start from P0(0.00, 0.00)")
-        # self.FinalMap()
+        self.inf = "start from P0(0.00, 0.00)"
+        self.UpdateMap()
+        
 
     def getState(self):
         return self._getState()
@@ -56,7 +70,7 @@ class CVRPEnv(gym.Env):
     def _take_action(self, destination):
         #计算两点间距离
         dis = self.position.distance(destination)
-
+        self.temp_dis = dis
         #计算载重
         self.weight_now += destination.weight
         #计算能量消耗
@@ -95,6 +109,9 @@ class CVRPEnv(gym.Env):
         #将位置移到目标点
         self.position = destination
         print("\ngo to point",destination)
+        self.inf = "go to point"+str(destination)
+        
+        self.UpdateMap()
 
     def _getState(self):
         statu = []
@@ -112,7 +129,6 @@ class CVRPEnv(gym.Env):
             if energy <= self.Energy_max and weight <= self.weight_capacity:
                 statu.append(each)
 
-
         for each in statu:
             dis = each.distance(self.zeropoint)
             #计算载重
@@ -122,14 +138,18 @@ class CVRPEnv(gym.Env):
 
             if energy > self.Energy_max or weight > self.weight_capacity:
                 statu.remove(each)
-
+        self.state = statu
         return statu
 
 
     def _get_reward(self):
-            return 0
+        if self.position is self.zeropoint and self.reward != 0:
+            self.reward -= 50
+        else:
+            self.reward -= 10 * self.temp_dis
+        return self.reward
 
-    def setstaticbackground(self,wc=1,wd=1.82,em=100,pointnum = 10):
+    def setstaticbackground(self,wc=1,wd=1.82,em=100,pointnum = 100):
         # Using Dji M600 drone parameter
         # 6xTB48S battery, 680g each;
         # drone weight 10,000g(including battery);
@@ -154,46 +174,63 @@ class CVRPEnv(gym.Env):
             temp = WPoint(position[x][0],position[x][1],weight[x])
             self.pointlist.append(temp)
         # print(str(self.pointlist))
-
     
     def Energy_fun(self,d,w):
         return d*(w**(2)+w**(1.5))
 
-    def FinalMap(self):
-        ax = plt.axes()
-        plt.xlim((0, 1))
-        plt.ylim((0, 1))
-        # plt.ion()
-        # ax.arrow(0, 0, 0.5, 0.5, head_width=0.05, head_length=0.1, fc='k', ec='k')
+    def UpdateMap(self):
+        plt.clf()
+        plt.title("DroneMap")
+        plt.xlim((0, 1.05))
+        plt.ylim((0, 1.05))
+        if not self.done:
+            plt.text(1, 1,self.inf, style='italic',bbox={'facecolor':'red', 'alpha':0.5, 'pad':5})
+        # Display weight
         list_x,list_y,list_w= [],[],[]
-
-        for p in self.state:
+        for p in self.pointlist:
             list_x.append(p.x)
             list_y.append(p.y)
             list_w.append(p.weight)
+        for index in range(len(list_w)):
+           plt.annotate(list_w[index], xy = (list_x[index], list_y[index]))
 
-        # for index in range(len(list_w)):
-        #     plt.annotate(list_w[index], xy = (list_x[index], list_y[index]))
+        # Blue is visited
+        list_x,list_y= [],[]
+        for p in self.pointvisited:
+            list_x.append(p.x)
+            list_y.append(p.y)
         plt.scatter(list_x,list_y, s = 30,alpha = 0.5,c='blue')
 
-        # list_x,list_y,list_w= [],[],[]
-        # for p in self.pointvisited:
-        #     list_x.append(p.x)
-        #     list_y.append(p.y)
-        #     list_w.append(p.weight)
+        # Red is can be reach
+        list_x2,list_y2 = [],[]
+        st = self.getState()
+        for p in st:
+            list_x2.append(p.x)
+            list_y2.append(p.y)
+        plt.scatter(list_x2,list_y2, s = 20,alpha = 0.5,c='red')
 
-        # for index in range(len(list_w)):
-        #     plt.annotate(list_w[index], xy = (list_x[index], list_y[index]))
+        # Black is unseen
+        list_x3,list_y3 = [],[]
+        for p in self.pointlist:
+            if p not in self.pointvisited and p not in st:
+                list_x3.append(p.x)
+                list_y3.append(p.y)
+        plt.scatter(list_x3,list_y3, s = 20,alpha = 0.5,c='black')
 
-        # plt.scatter(list_x,list_y, s = 30,alpha = 0.5,c='red')
-
+        # draw the arrow
         # for each in self.route:
         #     for i in range(len(each)-1):
-        #         ax.arrow(each[i].x,each[i].y,each[i+1].x-each[i].x,each[i+1].y-each[i].y)
-        
-        plt.show()
-
-    # def Renewmap(self,list_x,list_y):
+        #         plt.arrow(each[i].x,each[i].y,each[i+1].x-each[i].x,each[i+1].y-each[i].y,width=0.002,ec='red')
+        each = self.route_this
+        if self.zeropoint in self.state and len(self.state)==1:
+            each.append(self.zeropoint)
+        for i in range(len(each)-1):
+            plt.arrow(each[i].x,each[i].y,each[i+1].x-each[i].x,each[i+1].y-each[i].y,width=0.002,ec='red')
+            if i == len(each)-3:
+                plt.pause(0.001)
+        # plt.legend(loc=0)
+        plt.draw()
+        plt.pause(0.001)
 
 class WPoint():
     def __init__(self,xParam = 0.0,yParam = 0.0,weight = 0):
