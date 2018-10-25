@@ -7,6 +7,7 @@ import random
 env = gym.make('CVRPEnv-v0')
 env.reset()
 ob= env.getState()
+# env.EnableUI()
 # print(ob)
 while True:
     r = random.randint(0,len(ob)-1)
@@ -14,4 +15,5 @@ while True:
     print(ob)
     if done:
         break
+print("Game over,reward is ",reward)
 print("route is ",rt)

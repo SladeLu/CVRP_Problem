@@ -11,7 +11,7 @@ class CVRPEnv(gym.Env):
 
     def __init__(self):
         self.setstaticbackground()
-
+        self.enableui = False
 
     def step(self, action):
         self._take_action(action)
@@ -26,10 +26,6 @@ class CVRPEnv(gym.Env):
         else:
             done = self.done
         # episode_over = self.status != hfo_py.IN_GAME
-        if done:
-            self.inf = 'Game over,reward is'+str(reward)
-            plt.text(1, 1,self.inf, style='italic',bbox={'facecolor':'red', 'alpha':0.5, 'pad':5})
-            plt.show()
         return ob, reward, done, distance_total, rt,{}
 
     def seed(self):
@@ -58,10 +54,10 @@ class CVRPEnv(gym.Env):
 
 
         print("start from P0(0.00, 0.00)")
-        self.inf = "start from P0(0.00, 0.00)"
-        self.UpdateMap()
+        if self.enableui:
+            self.inf = "start from P0(0.00, 0.00)"
+            self.UpdateMap()
         
-
     def getState(self):
         return self._getState()
     # def render(self, mode='human', close=False):
@@ -110,8 +106,8 @@ class CVRPEnv(gym.Env):
         self.position = destination
         print("\ngo to point",destination)
         self.inf = "go to point"+str(destination)
-        
-        self.UpdateMap()
+        if self.enableui:
+            self.UpdateMap()
 
     def _getState(self):
         statu = []
@@ -141,7 +137,6 @@ class CVRPEnv(gym.Env):
         self.state = statu
         return statu
 
-
     def _get_reward(self):
         if self.position is self.zeropoint and self.reward != 0:
             self.reward -= 50
@@ -149,7 +144,7 @@ class CVRPEnv(gym.Env):
             self.reward -= 10 * self.temp_dis
         return self.reward
 
-    def setstaticbackground(self,wc=1,wd=1.82,em=100,pointnum = 100):
+    def setstaticbackground(self,wc=1,wd=1.82,em=50,pointnum = 100):
         # Using Dji M600 drone parameter
         # 6xTB48S battery, 680g each;
         # drone weight 10,000g(including battery);
@@ -184,6 +179,9 @@ class CVRPEnv(gym.Env):
         plt.xlim((0, 1.05))
         plt.ylim((0, 1.05))
         if not self.done:
+            plt.text(1, 1,self.inf, style='italic',bbox={'facecolor':'red', 'alpha':0.5, 'pad':5})
+        else:
+            self.inf = 'Game over,reward is'+str(reward)
             plt.text(1, 1,self.inf, style='italic',bbox={'facecolor':'red', 'alpha':0.5, 'pad':5})
         # Display weight
         list_x,list_y,list_w= [],[],[]
@@ -231,6 +229,9 @@ class CVRPEnv(gym.Env):
         # plt.legend(loc=0)
         plt.draw()
         plt.pause(0.001)
+    
+    def EnableUI(self):
+        self.enableui = True
 
 class WPoint():
     def __init__(self,xParam = 0.0,yParam = 0.0,weight = 0):
