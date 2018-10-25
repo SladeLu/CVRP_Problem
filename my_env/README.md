@@ -20,3 +20,6 @@ add code blew at the tail of the .py file
     id='CVRPEnv-v0',
     entry_point='myenv.envs:CVRPEnv'
 )`
+
+## Use demo to test
+run file "test.py"
