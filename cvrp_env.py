@@ -18,16 +18,18 @@ class CVRPEnv(gym.Env):
         self.pointlist = []
         self.zeropoint = WPoint(0,0,0)
 
-        # % of the weight of categories  
-        weight = np.around(np.random.rand(pointnum)*self.weight_capacity,2)
-
-        # distance from 0-1
-        position = np.around(np.random.rand(pointnum,2),2)
-
         #initial points
-        for x in range(pointnum):
-            temp = WPoint(position[x][0],position[x][1],weight[x])
+        while len(self.pointlist)<pointnum:
+            # % of the weight of categories  
+            weight = np.around(np.random.rand(1)*self.weight_capacity,2)
+            # distance from 0-1
+            position = np.around(np.random.rand(2),2)
+
+            temp = WPoint(position[0],position[1],weight)
             self.pointlist.append(temp)
+            #kill the unreachable point
+            if len(self.pointlist)==pointnum-1:
+                self.pointlist = self._getnextaction(initing=True).copy()
         
         # print(str(self.pointlist))
         self.enableui = False
@@ -118,11 +120,17 @@ class CVRPEnv(gym.Env):
         print("\ngo to point",destination)
         self.inf = "go to point"+str(destination)
 
-    def _getnextaction(self):
-        statu = []
-        temp_list = self.pointavailable.copy()
-        temp_list.append(self.zeropoint)
+    def _getnextaction(self,initing = False):
+        if initing:
+            temp_list = self.pointlist.copy()
+            self.position = self.zeropoint
+            self.energy_now = 0
+            self.weight_now = 0
+        else:
+            temp_list = self.pointavailable.copy()
+            temp_list.append(self.zeropoint)
 
+        statu = []
         #寻找既不超重也能飞到的地点
         for each in temp_list:
             #计算两点间距离
@@ -222,7 +230,6 @@ class CVRPEnv(gym.Env):
             # if i == len(each)-3:
             #     plt.pause(0.001)
 
-        # plt.legend(loc=0)
         plt.draw()
         plt.pause(0.001)
     
