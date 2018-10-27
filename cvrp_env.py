@@ -1,150 +1,10 @@
 import gym
-from gym import error, spaces, utils
-from gym.utils import seeding
 import matplotlib.pyplot as plt
 import math
 import numpy as np
-# from myenv.envs.weightpoint import WPoint
 
 class CVRPEnv(gym.Env):
-    # metadata = {'render.modes': ['human']}
-
-    def __init__(self):
-        self.setstaticbackground()
-        self.enableui = False
-
-    def step(self, action):
-        self._take_action(action)
-        # self.status = self.env.step()
-        reward = self._get_reward()
-        distance_total = self.distance_now
-        ob = self.getState()
-        rt = self.route
-        if len(ob)==0:
-            done = True
-            print("UAV DOWN")
-        else:
-            done = self.done
-        # episode_over = self.status != hfo_py.IN_GAME
-        return ob, reward, done, distance_total, rt,{}
-
-    def seed(self):
-        pass
-
-    def reset(self):
-        self.done = False
-
-        self.pointavailable = self.pointlist.copy()
-        self.pointvisited = []
-
-        self.position = self.zeropoint
-        self.energy_now = 0
-        self.weight_now = 0
-        self.distance_now = 0
-
-        self.route_this =[]
-        self.route_this.append(self.position)
-
-        self.state = self.getState().copy()
-        self.route = []
-
-        self.reward = 0
-
-        self.temp_dis = 0
-
-
-        print("start from P0(0.00, 0.00)")
-        if self.enableui:
-            self.inf = "start from P0(0.00, 0.00)"
-            self.UpdateMap()
-        
-    def getState(self):
-        return self._getState()
-    # def render(self, mode='human', close=False):
-    #     pass
-
-    def _take_action(self, destination):
-        #计算两点间距离
-        dis = self.position.distance(destination)
-        self.temp_dis = dis
-        #计算载重
-        self.weight_now += destination.weight
-        #计算能量消耗
-        self.energy_now += self.Energy_fun(dis,self.weight_now+self.weight_drone)
-
-        self.distance_now += dis
-        #将此点加入第j轮
-        self.route_this.append(destination)
-
-        #目标点是零点
-        if destination is self.zeropoint:
-            #充电
-            self.energy_now = 0
-            #负载清零
-            self.weight_now = 0
-
-            if len(self.route_this) > 1:
-                #将第j轮加入全局的路径并清空
-                self.route.append(self.route_this)
-                self.route_this = []
-                self.route_this.append(destination)
-                self.state = self.pointavailable.copy()
-
-            #没有点可以走了，游戏结束(且回到了原点)
-            if len(self.pointavailable) == 0:
-                self.done = True
-
-        #现在不是零点
-        else:
-            #将目标点标志为已访问
-            self.route_this.append(destination)
-            self.pointvisited.append(destination)
-            self.pointavailable.remove(destination)
-            self.state = self._getState().copy()
-
-        #将位置移到目标点
-        self.position = destination
-        print("\ngo to point",destination)
-        self.inf = "go to point"+str(destination)
-        if self.enableui:
-            self.UpdateMap()
-
-    def _getState(self):
-        statu = []
-        temp_list = self.pointavailable.copy()
-        temp_list.append(self.zeropoint)
-        for each in temp_list:
-            #计算两点间距离
-            dis = self.position.distance(each)
-
-            #计算载重
-            weight = self.weight_now + each.weight
-            #计算能量消耗
-            energy = self.energy_now + self.Energy_fun(dis,weight+self.weight_drone)
-
-            if energy <= self.Energy_max and weight <= self.weight_capacity:
-                statu.append(each)
-
-        for each in statu:
-            dis = each.distance(self.zeropoint)
-            #计算载重
-            weight = self.weight_now + each.weight
-            #计算能量消耗
-            energy = self.energy_now + self.Energy_fun(dis,weight+self.weight_drone)
-
-            if energy > self.Energy_max or weight > self.weight_capacity:
-                statu.remove(each)
-        self.state = statu
-        return statu
-
-    def _get_reward(self):
-        if self.position is self.zeropoint and self.reward != 0:
-            self.reward -= 50
-        else:
-            self.reward -= 10 * self.temp_dis
-        return self.reward
-
-    def setstaticbackground(self,wc=1,wd=1.82,em=50,pointnum = 100):
+    def __init__(self,wc=1,wd=1.82,em=50,pointnum = 100):
         # Using Dji M600 drone parameter
         # 6xTB48S battery, 680g each;
         # drone weight 10,000g(including battery);
@@ -168,7 +28,142 @@ class CVRPEnv(gym.Env):
         for x in range(pointnum):
             temp = WPoint(position[x][0],position[x][1],weight[x])
             self.pointlist.append(temp)
+        
         # print(str(self.pointlist))
+        self.enableui = False
+
+    def step(self, action):
+        self._take_action(action)
+        reward = self._get_reward()
+        ob = observation(self.route,self.nextaction,self.distance_now,self.position,\
+        self.energy_now/self.Energy_max,self.weight_now/self.weight_capacity)
+        done = self.done
+        return ob, reward, done, {}
+
+    def reset(self):
+        self.done = False
+
+        self.pointavailable = self.pointlist.copy()
+        self.pointvisited = []
+
+        self.position = self.zeropoint
+        self.energy_now = 0
+        self.weight_now = 0
+        self.distance_now = 0
+
+        self.route_this =[]
+        self.route_this.append(self.position)
+
+        self.nextaction = self._getnextaction().copy()
+        self.route = []
+
+        self.reward = 0
+        self.temp_dis = 0
+
+        self.inf = ''
+        print("start from P0(0.00, 0.00)")
+        if self.enableui:
+            self.inf = "start from P0(0.00, 0.00)"
+            self.UpdateMap()
+
+        ob = observation(self.route,self.nextaction,self.distance_now,self.position,\
+        self.energy_now/self.Energy_max,self.weight_now/self.weight_capacity)
+
+        return ob
+
+    def _take_action(self, destination):
+        #计算两点间距离
+        dis = self.position.distance(destination)
+        self.temp_dis = dis
+        #计算载重
+        self.weight_now += destination.weight
+        #计算能量消耗
+        self.energy_now += self.Energy_fun(dis,self.weight_now+self.weight_drone)
+
+        self.distance_now += dis
+        #将此点加入第j轮
+        self.route_this.append(destination)
+
+        if self.enableui:
+            self.UpdateMap()
+        #目标点是零点
+        if destination is self.zeropoint:
+            #充电
+            self.energy_now = 0
+            #负载清零
+            self.weight_now = 0
+
+            if len(self.route_this) > 1:
+                #将第j轮加入全局的路径并清空
+                self.route.append(self.route_this)
+                self.route_this = []
+                self.route_this.append(destination)
+                self.nextaction = self.pointavailable.copy()
+
+            #没有点可以走了，游戏结束(且回到了原点)
+            if len(self.pointavailable) == 0:
+                self.done = True
+
+        #现在不是零点
+        else:
+            #将目标点标志为已访问
+            self.route_this.append(destination)
+            self.pointvisited.append(destination)
+            self.pointavailable.remove(destination)
+            self.nextaction = self._getnextaction().copy()
+
+        #将位置移到目标点
+        self.position = destination
+
+        print("\ngo to point",destination)
+        self.inf = "go to point"+str(destination)
+
+    def _getnextaction(self):
+        statu = []
+        temp_list = self.pointavailable.copy()
+        temp_list.append(self.zeropoint)
+
+        #寻找既不超重也能飞到的地点
+        for each in temp_list:
+            #计算两点间距离
+            dis = self.position.distance(each)
+
+            #计算载重
+            weight = self.weight_now + each.weight
+            #计算能量消耗
+            energy = self.energy_now + self.Energy_fun(dis,weight+self.weight_drone)
+
+            if energy <= self.Energy_max and weight <= self.weight_capacity:
+                statu.append(each)
+
+        #去掉飞到后就回不了原点的地点
+        for each in statu:
+            dis = each.distance(self.zeropoint)
+            #计算载重
+            weight = self.weight_now + each.weight
+            #计算能量消耗
+            energy = self.energy_now + self.Energy_fun(dis,weight+self.weight_drone)
+
+            if energy > self.Energy_max or weight > self.weight_capacity:
+                statu.remove(each)
+        
+        # self.nextaction = statu
+        return statu
+
+    def _get_reward(self):
+        #如果空载率较大就返回，则惩罚
+        if self.position is self.zeropoint and self.reward != 0:
+            self.reward -= 50
+        else:
+            self.reward -= 10 * self.temp_dis
+
+        #如果无人机掉下来了就超级惩罚，并且停止本次游戏
+        if len(self.nextaction)==0 and self.done == False:
+            #UAV down
+            self.reward -= 10000
+            self.done = True
+            print("UAV DOWN")
+        return self.reward
     
     def Energy_fun(self,d,w):
         return d*(w**(2)+w**(1.5))
@@ -201,7 +196,7 @@ class CVRPEnv(gym.Env):
 
         # Red is can be reach
         list_x2,list_y2 = [],[]
-        st = self.getState()
+        st = self.nextaction
         for p in st:
             list_x2.append(p.x)
             list_y2.append(p.y)
@@ -220,12 +215,13 @@ class CVRPEnv(gym.Env):
         #     for i in range(len(each)-1):
         #         plt.arrow(each[i].x,each[i].y,each[i+1].x-each[i].x,each[i+1].y-each[i].y,width=0.002,ec='red')
         each = self.route_this
-        if self.zeropoint in self.state and len(self.state)==1:
-            each.append(self.zeropoint)
+        # if self.zeropoint in self.nextaction and len(self.nextaction)==1:
+        #     each.append(self.zeropoint)
         for i in range(len(each)-1):
             plt.arrow(each[i].x,each[i].y,each[i+1].x-each[i].x,each[i+1].y-each[i].y,width=0.002,ec='red')
-            if i == len(each)-3:
-                plt.pause(0.001)
+            # if i == len(each)-3:
+            #     plt.pause(0.001)
+
         # plt.legend(loc=0)
         plt.draw()
         plt.pause(0.001)
@@ -249,3 +245,12 @@ class WPoint():
 
     def __repr__(self):
         return str(self)
+
+class observation(object):
+    def __init__(self,rt,nextaction,distance,pos,energy_p,weight_p):
+        self.route = rt
+        self.nextaction = nextaction
+        self.distance_now = distance
+        self.position = pos
+        self.energy_percentage = energy_p
+        self.weight_percentage = weight_p

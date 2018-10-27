@@ -1,19 +1,21 @@
 import gym 
 import numpy as np
-import my_env
 import random
 
+from cvrp_env import CVRPEnv
 
-env = gym.make('CVRPEnv-v0')
-env.reset()
-ob= env.getState()
+env = CVRPEnv()
+ob = env.reset()
 # env.EnableUI()
-# print(ob)
+
 while True:
-    r = random.randint(0,len(ob)-1)
-    ob, reward, done,distance,rt,info= env.step(ob[r])
-    print(ob)
+    nextaction = ob.nextaction
+    r = random.randint(0,len(nextaction)-1)
+
+    ob, reward, done,info= env.step(nextaction[r])
+
     if done:
         break
+
+print("route is ",ob.route)
 print("Game over,reward is ",reward)
-print("route is ",rt)
