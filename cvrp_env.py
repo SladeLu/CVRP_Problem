@@ -30,17 +30,15 @@ class CVRPEnv(gym.Env):
             #kill the unreachable point
             if len(self.pointlist)==pointnum-1:
                 self.pointlist = self._getnextaction(initing=True).copy()
-        
-        # print(str(self.pointlist))
-        self.enableui = False
 
     def step(self, action):
         self._take_action(action)
         reward = self._get_reward()
-        ob = observation(self.route,self.nextaction,self.distance_now,self.position,\
+        self.observation = observation(self.route,self.nextaction,self.distance_now,self.position,\
         self.energy_now/self.Energy_max,self.weight_now/self.weight_capacity)
         done = self.done
-        return ob, reward, done, {}
+        ob = self.observation
+        return ob, reward, done
 
     def reset(self):
         self.done = False
@@ -64,14 +62,12 @@ class CVRPEnv(gym.Env):
 
         self.inf = ''
         print("start from P0(0.00, 0.00)")
-        if self.enableui:
-            self.inf = "start from P0(0.00, 0.00)"
-            self.UpdateMap()
+        self.inf = "start from P0(0.00, 0.00)"
 
-        ob = observation(self.route,self.nextaction,self.distance_now,self.position,\
+        self.observation = observation(self.route,self.nextaction,self.distance_now,self.position,\
         self.energy_now/self.Energy_max,self.weight_now/self.weight_capacity)
 
-        return ob
+        return  self.observation
 
     def _take_action(self, destination):
         #计算两点间距离
@@ -86,8 +82,6 @@ class CVRPEnv(gym.Env):
         #将此点加入第j轮
         self.route_this.append(destination)
 
-        if self.enableui:
-            self.UpdateMap()
         #目标点是零点
         if destination is self.zeropoint:
             #充电
@@ -154,14 +148,12 @@ class CVRPEnv(gym.Env):
 
             if energy > self.Energy_max or weight > self.weight_capacity:
                 statu.remove(each)
-        
-        # self.nextaction = statu
         return statu
 
     def _get_reward(self):
         #如果空载率较大就返回，则惩罚
         if self.position is self.zeropoint and self.reward != 0:
-            self.reward -= 50
+            self.reward -= (1-self.weight_now/self.weight_capacity)*100
         else:
             self.reward -= 10 * self.temp_dis
 
@@ -176,7 +168,7 @@ class CVRPEnv(gym.Env):
     def Energy_fun(self,d,w):
         return d*(w**(2)+w**(1.5))
 
-    def UpdateMap(self):
+    def render(self):
         plt.clf()
         plt.title("DroneMap")
         plt.xlim((0, 1.05))
@@ -222,19 +214,19 @@ class CVRPEnv(gym.Env):
         # for each in self.route:
         #     for i in range(len(each)-1):
         #         plt.arrow(each[i].x,each[i].y,each[i+1].x-each[i].x,each[i+1].y-each[i].y,width=0.002,ec='red')
-        each = self.route_this
-        # if self.zeropoint in self.nextaction and len(self.nextaction)==1:
-        #     each.append(self.zeropoint)
+        try:
+            if len(self.route_this) == 1:
+                each = self.route[-1]
+            else :
+                each = self.route_this
+        except Exception:
+            each = self.route_this
+            
         for i in range(len(each)-1):
             plt.arrow(each[i].x,each[i].y,each[i+1].x-each[i].x,each[i+1].y-each[i].y,width=0.002,ec='red')
-            # if i == len(each)-3:
-            #     plt.pause(0.001)
 
         plt.draw()
         plt.pause(0.001)
-    
-    def EnableUI(self):
-        self.enableui = True
 
 class WPoint():
     def __init__(self,xParam = 0.0,yParam = 0.0,weight = 0):
