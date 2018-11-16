@@ -30,6 +30,10 @@ class CVRPEnv(gym.Env):
             #kill the unreachable point
             if len(self.pointlist)==pointnum-1:
                 self.pointlist = self._getnextaction(initing=True).copy()
+        
+        #Adapt NN
+        self.n_actions = len(self.pointlist)
+        self.n_features = 4
 
     def step(self, action):
         self._take_action(action)

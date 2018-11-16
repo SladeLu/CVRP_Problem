@@ -3,9 +3,8 @@ import numpy as np
 import random
 
 from cvrp_env import CVRPEnv
-from RL_brain import DeepQNetwork
 
-def run_CVRP():
+def run_CVRP(env):
     step = 0    # 用来控制什么时候学习
     for episode in range(300):
         # 初始化环境
@@ -42,8 +41,8 @@ def run_CVRP():
 
 if __name__ == "__main__":
     env = CVRPEnv()
-    ob = env.reset()
 
+    ob = env.reset()
     while True:
         env.render()
         nextaction = ob.nextaction
@@ -55,15 +54,3 @@ if __name__ == "__main__":
 
     print("route is ",ob.route)
     print("Game over,reward is ",reward)
-    
-    # RL = DeepQNetwork(env.n_actions, env.n_features,
-    #                   learning_rate=0.01,
-    #                   reward_decay=0.9,
-    #                   e_greedy=0.9,
-    #                   replace_target_iter=200,  # 每 200 步替换一次 target_net 的参数
-    #                   memory_size=2000, # 记忆上限
-    #                   # output_graph=True   # 是否输出 tensorboard 文件
-    #                   )
-    # env.after(100, run_maze)
-    # env.mainloop()
-    # RL.plot_cost()  # 观看神经网络的误差曲线
