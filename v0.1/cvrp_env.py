@@ -18,6 +18,8 @@ class CVRPEnv(gym.Env):
         self.pointlist = []
         self.zeropoint = WPoint(0,0,0)
 
+        self.tensor_list = []
+
         #initial points
         while len(self.pointlist)<pointnum:
             # % of the weight of categories  
@@ -30,10 +32,11 @@ class CVRPEnv(gym.Env):
             #kill the unreachable point
             if len(self.pointlist)==pointnum-1:
                 self.pointlist = self._getnextaction(initing=True).copy()
+
+
+        for i in range(pointnum):
+            tp = observation_tensor(self.pointlist[i].x,self.pointlist[i].y,self.pointlist[i].weight,False,0,0)
         
-        #Adapt NN
-        self.n_actions = len(self.pointlist)
-        self.n_features = 4
 
     def step(self, action):
         self._take_action(action)
@@ -257,3 +260,7 @@ class observation(object):
         self.position = pos
         self.energy_percentage = energy_p
         self.weight_percentage = weight_p
+
+class observation_tensor(object):
+    def __init__(self,pos_x,pos_y,pos_w,beenthrough,weight_left,energy_left):
+        pass
