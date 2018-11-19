@@ -4,7 +4,7 @@ import numpy as np
 
 
 class CVRPEnv_v2():
-    def __init__(self, wc=2, wd=1.82, em=50, pointnum=5):
+    def __init__(self, wc=1, wd=1.82, em=50, pointnum=5):
         # Using Dji M600 drone parameter
         # 6xTB48S battery, 680g each;
         # drone weight 10,000g(including battery);
