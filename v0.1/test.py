@@ -3,6 +3,7 @@ import numpy as np
 import random
 
 from cvrp_env import CVRPEnv
+from cvrp_env_v2 import CVRPEnv_v2
 
 def run_CVRP(env):
     step = 0    # 用来控制什么时候学习
@@ -40,17 +41,24 @@ def run_CVRP(env):
     env.destroy()
 
 if __name__ == "__main__":
-    env = CVRPEnv()
+    env = CVRPEnv_v2()
 
     ob = env.reset()
-    while True:
-        env.render()
-        nextaction = ob.nextaction
-        r = random.randint(0,len(nextaction)-1)
-        ob, reward, done = env.step(nextaction[r])
+    # while True:
+    #     env.render()
+    #     nextaction = ob.nextaction
+    #     r = random.randint(0,len(nextaction)-1)
+    #     ob, reward, done = env.step(nextaction[r])
 
-        if done:
-            break
+    #     if done:
+    #         break
+    print(ob)
+    for x in range(1,5):
+        ob = env.step(ob[x])
+        print(ob)
+    ob = env.step(ob[0])
+    print(ob)
+    print(env.route)
 
-    print("route is ",ob.route)
-    print("Game over,reward is ",reward)
+    # print("route is ",ob.route)
+    # print("Game over,reward is ",reward)
