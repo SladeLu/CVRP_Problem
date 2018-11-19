@@ -4,7 +4,7 @@ import numpy as np
 
 
 class CVRPEnv_v2():
-    def __init__(self, wc=1, wd=1.82, em=50, pointnum=10):
+    def __init__(self, wc=2, wd=1.82, em=50, pointnum=5):
         # Using Dji M600 drone parameter
         # 6xTB48S battery, 680g each;
         # drone weight 10,000g(including battery);
@@ -18,6 +18,7 @@ class CVRPEnv_v2():
         self.zeropoint = WPoint(0, 0, 0)
         self.zerotensor = ob_tensor(0, 0, 0, True, 1, 1, False)
         self.tensor_list = [ob_tensor(0, 0, 0, True, 1, 1, True)]
+        self.n_action = pointnum
 
         self.position = self.zeropoint
         self.energy_now = 0
@@ -33,7 +34,7 @@ class CVRPEnv_v2():
                              weight, False, 0, 0, False)
 
             self.tensor_list.append(temp)
-            if len(self.tensor_list) == pointnum-1:
+            if len(self.tensor_list) >= pointnum-1:
                 self._UpdateTensor(initing=True)
 
     def _UpdateTensor(self, initing=False):
@@ -58,19 +59,23 @@ class CVRPEnv_v2():
             pass
 
     def step(self, action):
-        ob = self._take_action(action)
-        return ob
+        self._take_action(action)
+        ob = self.tensor_list
+        done = self.done
+        reward = self.reward
+        return ob,reward,done
 
     def _take_action(self, action):
         #去过了的点
         if action.beenthrough == 1:
-            self._get_reward()
+            self._get_reward(0)
             return
         #超过能量/重量的点
         if action.energy_left < 0 or action.weight_left<0:
-            self._get_reward()
+            self._get_reward(1)
             print("over")
-            return
+            self.done = True
+            return 
         for each in self.tensor_list:
             if each.here:
                 each.here = False
@@ -78,7 +83,9 @@ class CVRPEnv_v2():
         for each in self.tensor_list:
             if each == action:
                 each.here = True
-                self.position = WPoint(each.pos_x, each.pos_y, each.pos_w)
+                dis = WPoint(each.pos_x, each.pos_y, each.pos_w)
+                self.distance_temp = self.position.distance(dis.x,dis.y)
+                self.position = dis
                 self.route_this.append(each)
 
                 if each.pos_x == 0 and each.pos_y == 0:
@@ -94,8 +101,23 @@ class CVRPEnv_v2():
                 self._UpdateTensor()
             elif each.pos_x == 0 and each.pos_y == 0:
                 each.beenthrough = False
+        self.distance_now += self.distance_temp
+        self._get_reward(2)
 
-    def _get_reward(self):
+        for each in self.tensor_list:
+            if each.beenthrough is False and (each.pos_x != 0 and each.pos_y != 0):
+                self.done = False
+                return
+        self.done = True
+
+    def _get_reward(self,sta):
+        if sta==0:
+            pass
+        elif sta == 1:
+            self.reward -= 10000
+        elif sta ==2 :
+            self.reward -= self.distance_temp
+
         pass
 
     def Energy_fun(self, d, w):

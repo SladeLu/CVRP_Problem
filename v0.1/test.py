@@ -44,21 +44,27 @@ if __name__ == "__main__":
     env = CVRPEnv_v2()
 
     ob = env.reset()
-    # while True:
+    print(ob)
+    while True:
     #     env.render()
-    #     nextaction = ob.nextaction
-    #     r = random.randint(0,len(nextaction)-1)
-    #     ob, reward, done = env.step(nextaction[r])
-
-    #     if done:
-    #         break
-    print(ob)
-    for x in range(1,5):
-        ob = env.step(ob[x])
+        # nextaction = ob.nextaction
+        r = random.randint(0,env.n_action-1)
+        print(r)
+        ob, reward, done = env.step(ob[r])
         print(ob)
-    ob = env.step(ob[0])
-    print(ob)
-    print(env.route)
+        if done:
+            break
+    # print(ob)
+    # for x in range(1,5):
+    # ob,done = env.step(ob[1])
+    # print(ob)
+    # ob,done = env.step(ob[2])
+    # print(ob)
+    # ob,done = env.step(ob[1])
+    # print(ob)
+    # ob = env.step(ob[0])
+    # print(ob)
+    # print(env.route)
 
-    # print("route is ",ob.route)
+    print("route is ",ob)
     # print("Game over,reward is ",reward)
