@@ -14,15 +14,17 @@ class CVRPEnv_v2():
         self.weight_drone = wd * self.weight_capacity
         self.Energy_max = em
 
-        self.pointlist = []
+        # self.pointlist = []
         self.zeropoint = WPoint(0, 0, 0)
-        self.zerotensor = ob_tensor(0, 0, 0, True, 1, 1, False)
+        # self.zerotensor = ob_tensor(0, 0, 0, True, 1, 1, False)
         self.tensor_list = [ob_tensor(0, 0, 0, True, 1, 1, True)]
         self.n_action = pointnum
 
         self.position = self.zeropoint
         self.energy_now = 0
         self.weight_now = 0
+
+        self.CONTINUE = False
 
         # initial points
         while len(self.tensor_list) < pointnum:
@@ -38,31 +40,42 @@ class CVRPEnv_v2():
                 self._UpdateTensor(initing=True)
 
     def _UpdateTensor(self, initing=False):
-        for each in self.tensor_list:
-            if not each.here:
-                # 计算两点间距离
-                dis = self.position.distance(each.pos_x, each.pos_y)
-                # 计算载重
-                weight = self.weight_now + each.pos_w
-                # 计算能量消耗
-                energy = self.energy_now + \
-                    self.Energy_fun(dis, weight+self.weight_drone)
-                each.energy_left = (self.Energy_max - energy)/self.Energy_max
-                each.weight_left = (self.weight_capacity -
-                                    weight)/self.weight_capacity
-            
         if initing:
             for each in self.tensor_list:
-                if each.weight_left <= 0 and each.energy_left < 0:
+                if not each.here:
+                    # 计算两点间距离
+                    dis = self.zeropoint.distance(each.pos_x, each.pos_y)
+                    # 计算载重
+                    weight = each.pos_w
+                    # 计算能量消耗
+                    energy_back = self.Energy_fun(dis, weight+self.weight_drone)
+                    energy_go = self.Energy_fun(dis,self.weight_drone)
+                    energy_limit = (self.Energy_max - energy_go - energy_back)/self.Energy_max
+                    each.energy_left = (self.Energy_max - energy_go)/self.Energy_max
+                    each.weight_left = (self.weight_capacity - weight)/self.weight_capacity
+
+            for each in self.tensor_list:
+                if each.weight_left < 0 or energy_limit < 0:
                     self.tensor_list.remove(each)
         else:
-            pass
+            for each in self.tensor_list:
+                if not each.here:
+                    # 计算两点间距离
+                    dis = self.position.distance(each.pos_x, each.pos_y)
+                    # 计算载重
+                    weight = self.weight_now + each.pos_w
+                    # 计算能量消耗
+                    energy = self.energy_now + self.Energy_fun(dis, weight+self.weight_drone)
+                    each.energy_left = (self.Energy_max - energy)/self.Energy_max
+                    each.weight_left = (self.weight_capacity -
+                                        weight)/self.weight_capacity
 
     def step(self, action):
         self._take_action(action)
         ob = self.tensor_list
         done = self.done
         reward = self.reward
+        contine = self.CONTINUE
         return ob,reward,done
 
     def _take_action(self, action):
@@ -73,8 +86,7 @@ class CVRPEnv_v2():
         #超过能量/重量的点
         if action.energy_left < 0 or action.weight_left<0:
             self._get_reward(1)
-            print("over")
-            self.done = True
+            # self.done = True
             return 
         for each in self.tensor_list:
             if each.here:
@@ -87,16 +99,19 @@ class CVRPEnv_v2():
                 self.distance_temp = self.position.distance(dis.x,dis.y)
                 self.position = dis
                 self.route_this.append(each)
-
+                #回到原点了
                 if each.pos_x == 0 and each.pos_y == 0:
                     each.energy_left = 1
                     each.weight_left = 1
                     each.beenthrough = True
+                    self.weight_now = 0
+                    self.energy_now = 0
                     self.route.append(self.route_this.copy())
                     self.route_this = [ob_tensor(0, 0, 0, True, 1, 1, True)]
+                #只是普通点
                 else:
-                    self.weight_now = self.weight_capacity - each.weight_left
-                    self.energy_now = self.Energy_max - each.energy_left
+                    self.weight_now = self.weight_capacity - each.weight_left*self.weight_capacity
+                    self.energy_now = self.Energy_max - each.energy_left*self.Energy_max
                     each.beenthrough = True
                 self._UpdateTensor()
             elif each.pos_x == 0 and each.pos_y == 0:
@@ -114,11 +129,11 @@ class CVRPEnv_v2():
         if sta==0:
             pass
         elif sta == 1:
-            self.reward -= 10000
+            self.reward -= 100000
+            self.CONTINUE = True
         elif sta ==2 :
             self.reward -= self.distance_temp
 
-        pass
 
     def Energy_fun(self, d, w):
         return d*(w**(2)+w**(1.5))
@@ -129,7 +144,6 @@ class CVRPEnv_v2():
         self.energy_now = 0
         self.weight_now = 0
         self.distance_now = 0
-
         self.route_this = [ob_tensor(0, 0, 0, True, 1, 1, True)]
         self.route = []
         self.reward = 0
